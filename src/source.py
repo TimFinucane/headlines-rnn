@@ -26,7 +26,7 @@ def store_stories( append = True, pages: int = 5 ):
     with open( './data/newsapi.org.key' ) as file:
         news = NewsApiClient( api_key = file.read() )
     
-    with open( './data/store.txt', 'a' if append else 'x' ) as store:
+    with open( './data/store.txt', 'a' if append else 'x', encoding = 'utf-8' ) as store:
         for i in range( 1, pages ):
             articles = news.get_everything( 
                 sources = ','.join( NEWS_SOURCES ),
