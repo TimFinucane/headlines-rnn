@@ -1,0 +1,8 @@
+# Obviously not this
+data
+
+# Python
+__pycache__
+
+# Worked on with vs code
+*.code-workspace
