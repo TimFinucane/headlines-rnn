@@ -38,11 +38,14 @@ def store_stories( append = True, pages: int = 5 ):
             print( 'Read page {:}'.format( i ) )
             for article in articles['articles']:
                 try:
-                    text = article['source']['name'] + '|' + article['title']  + '|' + article['description'] + '\n'
-                    text.replace( '\n', '. ' )
-                    text.replace( ' | ', ' ' )
-                    text.replace( '|', ' ' ) 
-                    store.write( text )
+                    text = []
+                    for part in [article['source']['name'], article['title'], article['description']]:
+                        part.replace( '\n', '. ' )
+                        part.replace( ' | ', ' ' )
+                        part.replace( '|', ' ' )
+                        text.append( part )
+
+                    store.write( '|'.join( text ) + '\n' )
                 except Exception:
                     continue
 
