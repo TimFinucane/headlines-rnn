@@ -17,7 +17,6 @@ def model( source, char_inputs, training = True, create_state = True ):
             state = tf.layers.dense( source, NUM_LAYERS * HIDDEN_UNITS )
             state = tf.reshape( state, [-1, NUM_LAYERS, HIDDEN_UNITS] )
             state = tf.transpose( state, [1, 0, 2] )
-            state = state + tf.random_normal( tf.shape( state ), stddev = 0.2 )
         else:
             state = source
 
