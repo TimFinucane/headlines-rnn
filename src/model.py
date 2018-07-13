@@ -3,7 +3,7 @@ import tensorflow as tf
 with tf.variable_scope( 'char_lstm' ) as model_scope:
     pass
 
-def model( source, char_inputs, training = True, create_state = True ):
+def model( source, char_inputs, training = True, create_state = True, reuse = None ):
     NUM_LAYERS = 3
     HIDDEN_UNITS = 1024
 
@@ -12,7 +12,7 @@ def model( source, char_inputs, training = True, create_state = True ):
     else:
         single_input = False
 
-    with tf.variable_scope( model_scope, reuse = tf.AUTO_REUSE ):
+    with tf.variable_scope( model_scope, reuse = reuse if reuse is not None else not training ):
         if create_state:
             state = tf.layers.dense( source, NUM_LAYERS * HIDDEN_UNITS )
             state = tf.reshape( state, [-1, NUM_LAYERS, HIDDEN_UNITS] )
