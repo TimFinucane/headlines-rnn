@@ -3,11 +3,11 @@ import numpy as np
 import tensorflow as tf
 
 from feed import feed_stories, decode_to_string, decode_source, NUM_SOURCES, NUM_CLASSES, ZERO_CLASS
-from model import model
+from model import model, model_scope
 
 def write_to_file( filename, text, overwrite = False ):
     with open( filename, 'w' if overwrite else 'a', encoding = 'utf-8' ) as file:
-        file.write( '\n'.join( text ) + '\n' )
+        file.write( '\n'.join( text ) )
 
 def generate( source, initial_char, batch_size, training = False ):
     def choose_char( character_logits ):
@@ -51,18 +51,17 @@ def generate( source, initial_char, batch_size, training = False ):
 def train():
     BATCH_SIZE = 32
 
-    init, (sources, titles) = feed_stories( BATCH_SIZE )
+    global_step = tf.train.create_global_step()
+    global_step_inc = global_step.assign_add( 1 )
+
+    sources, titles = feed_stories( BATCH_SIZE )
 
     with tf.variable_scope( 'model' ):
         source_vectors = tf.one_hot( sources, NUM_SOURCES )
         title_vectors = tf.one_hot( titles[:, :-1], NUM_CLASSES )
         predicted_logits, _ = model( source_vectors, title_vectors )
 
-        # Have diminishing cost the closer you get to the first char. This is to let the model be less precise at the start
-        cost =  1.00 * tf.reduce_sum( tf.nn.sparse_softmax_cross_entropy_with_logits( logits = predicted_logits[:, 15:  , :], labels = titles[:, 16:  ] ) )
-        cost += 0.10 * tf.reduce_sum( tf.nn.sparse_softmax_cross_entropy_with_logits( logits = predicted_logits[:,  8:15, :], labels = titles[:,  9:16] ) )
-        cost += 0.01 * tf.reduce_sum( tf.nn.sparse_softmax_cross_entropy_with_logits( logits = predicted_logits[:,   :8 , :], labels = titles[:,  1:9 ] ) )
-        cost /= tf.cast( tf.reduce_prod( tf.shape( titles ) ), tf.float32 )
+        cost = tf.reduce_mean( tf.nn.sparse_softmax_cross_entropy_with_logits( logits = predicted_logits, labels = titles[:, 1:] ) )
 
         # Have some output stuff
         predicted_classes = tf.concat( (titles[:, 0:1], tf.argmax( predicted_logits, -1, output_type = tf.int32 )), 1 )
@@ -74,19 +73,30 @@ def train():
         trainer = tf.train.AdamOptimizer( learning_rate ).minimize( cost )
 
     with tf.Session( config = tf.ConfigProto( gpu_options = tf.GPUOptions( per_process_gpu_memory_fraction = 0.75 ) ) ) as session:
-        session.run( [tf.global_variables_initializer(), init] )
+        session.run( tf.global_variables_initializer() )
+
+        saver = tf.train.Saver()
+        saver.export_meta_graph( './save/model.meta' )
+        saver.restore( session, './save/model' )
 
         write_to_file( './data/inputs.txt', decode_to_string( session.run( titles ) ), overwrite = True )
 
-        for i in range( 2000000 ):
-            _cost, _predictions, _ = session.run( [cost, predicted_classes, trainer] )
+        try:
+            while True:
+                i = session.run( global_step_inc )
+                _cost, _predictions, _ = session.run( [cost, predicted_classes, trainer] )
+                print( '{:05d}: {:6.4f}, {:}'.format( i, _cost, decode_to_string( _predictions )[0] ) )
 
-            print( '{:05d}: {:6.4f}, {:}'.format( i, _cost, decode_to_string( _predictions )[0] ) )
-
-            if i % 200 == 0:
-                write_to_file( './data/generated.txt', decode_to_string( session.run( generated_classes ) ) )
-            if i % 500 == 0 and i > 0 and i <= 10000:
-                session.run( lr_adjust )
+                if i % 200 == 0:
+                    write_to_file( './data/generated.txt', [str(i), *decode_to_string( session.run( generated_classes ) ), '\n'] )
+                if i % 500 == 0 and i <= 10000:
+                    session.run( lr_adjust )
+                if i % 1000 == 0:
+                    saver.save( session, './save/model' )
+        except KeyboardInterrupt:
+            print( 'saving' )
+        
+        saver.save( session, './save/model' )
 
 if __name__ == '__main__':
     train()
