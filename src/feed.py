@@ -48,13 +48,13 @@ def encode_source( source ):
     '''
     Converts a source name into a source id
     '''
-    return NEWS_NAMES.index( source.decode( 'ascii' ) )
+    return NEWS_NAMES.index( source )
 
 def encode_string( string ):
     '''
     Converts a headline string into a series of classes
     '''
-    return np.array( [CHAR_CLASSES.index( c ) for c in string.decode( 'utf-8' )], np.int32 )
+    return np.array( [CHAR_CLASSES.index( c ) for c in string], np.int32 )
 
 def decode_to_string( encodings ):
     '''
@@ -64,17 +64,16 @@ def decode_to_string( encodings ):
 
 # Feeding into the training process
 def feed_stories( batch_size ):
-    dataset = tf.data.TextLineDataset( './data/store.txt' ).map(
-        lambda line: tf.split( tf.string_split( [line], '|', skip_empty = False ).values, num_or_size_splits = 3, axis = 0 )
-    ).map(
-        lambda source, title, desc: tf.py_func(
-            lambda source, title, desc: (encode_source( source[0] ), encode_string( title[0] )),
-            [source, title, desc],
-            [tf.int32, tf.int32]
-        )
-    )
+    import csv
+    stories = []
 
-    dataset = dataset.repeat().padded_batch( batch_size, ([], [None]), (0, ZERO_CLASS) )
-    it = dataset.make_initializable_iterator()
+    with open( './data/headlines.csv', 'r', encoding = 'utf-8' ) as headline_file:
+        for row in csv.reader( headline_file ):
+            stories.append( (encode_source( row[0] ), encode_string( row[1] )) )
 
-    return it.initializer, it.get_next()
+    dataset = tf.data.Dataset.range( len(stories) ).shuffle( len(stories) ).map(
+        lambda idx: tf.py_func( lambda i: stories[i], [idx], [tf.int32, tf.int32] ),
+        4 )
+    dataset = dataset.repeat().padded_batch( batch_size, ([], [None]), (0, ZERO_CLASS) ).prefetch( 8 )
+
+    return dataset.make_one_shot_iterator().get_next()
