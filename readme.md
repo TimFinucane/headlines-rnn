@@ -2,6 +2,7 @@ This is code for an Recurrent Neural Network that can be used for generating hea
 This project was made possible by using https://newsapi.org for retrieving news headlines in large quantity.
 
 Some (selected) examples are:
+
     - Pecker Maltare joins plan to fight shadow after man with...
     - Kimmy Flat: Korean leader Hill to make tiny Launch
     - What 3, Obama decisions for a national farewell tour
